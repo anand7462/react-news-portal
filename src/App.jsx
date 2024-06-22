@@ -9,25 +9,41 @@ import {
 import axios from "axios";
 import NewsList from "./components/NewsList";
 import ViewNews from "./components/ViewNews";
+import Favorites from "./components/Favorites";
 
 const App = () => {
-  const apiUrl = "https://newsapi.org/v2/everything?q=bitcoin&apiKey=971d87fa604c40279fb910916504bafd";
-
+  const apiKey = "971d87fa604c40279fb910916504bafd";
   const [posts, setPosts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const postsPerPage = 10; // Adjust this number as needed
+  const [searchTerm, setSearchTerm] = useState("bitcoin");
+  const [favorites, setFavorites] = useState([]);
+  const postsPerPage = 10;
 
   useEffect(() => {
     fetchPosts();
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const savedFavorites = JSON.parse(localStorage.getItem("favorites")) || [];
+    setFavorites(savedFavorites);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("favorites", JSON.stringify(favorites));
+  }, [favorites]);
 
   const fetchPosts = async () => {
     try {
-      const response = await axios.get(apiUrl);
-      setPosts(response.data.articles); // Adjusting to access the articles array
+      const response = await axios.get(`https://newsapi.org/v2/everything?q=${searchTerm}&apiKey=${apiKey}`);
+      setPosts(response.data.articles);
     } catch (error) {
       console.error("Error fetching posts:", error);
     }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchPosts();
   };
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
@@ -35,6 +51,14 @@ const App = () => {
   const indexOfLastPost = currentPage * postsPerPage;
   const indexOfFirstPost = indexOfLastPost - postsPerPage;
   const currentPosts = posts.slice(indexOfFirstPost, indexOfLastPost);
+
+  const addToFavorites = (post) => {
+    setFavorites([...favorites, post]);
+  };
+
+  const removeFromFavorites = (url) => {
+    setFavorites(favorites.filter((fav) => fav.url !== url));
+  };
 
   return (
     <Router>
@@ -55,16 +79,41 @@ const App = () => {
                 Home
               </Link>
             </li>
+            <li>
+              <Link to="/favorites" className="text-red-600 hover:underline text-lg">
+                Favorites
+              </Link>
+            </li>
           </ul>
         </nav>
+
+        <div className="flex justify-center mb-6">
+          <form onSubmit={handleSearch} className="flex">
+            <input
+              type="text"
+              className="px-4 py-2 border rounded-l-lg"
+              placeholder="Search for news..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded-r-lg">
+              Search
+            </button>
+          </form>
+        </div>
+
         <Routes>
           <Route
             path="/"
-            element={<NewsList posts={currentPosts} totalPosts={posts.length} postsPerPage={postsPerPage} paginate={paginate} />}
+            element={<NewsList posts={currentPosts} totalPosts={posts.length} postsPerPage={postsPerPage} paginate={paginate} addToFavorites={addToFavorites} />}
           />
           <Route
             path="/view/:postId"
             element={<ViewPostWrapper posts={posts} />}
+          />
+          <Route
+            path="/favorites"
+            element={<Favorites favorites={favorites} removeFromFavorites={removeFromFavorites} />}
           />
         </Routes>
       </div>
